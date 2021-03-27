@@ -1,9 +1,23 @@
 package parser
 
 import (
+	"bytes"
 	"encoding/xml"
-	"fmt"
+	"errors"
 	"io"
+	"time"
+
+	"github.com/wmentor/ua"
+)
+
+var (
+	ErrFetchFailed  error = errors.New("fetch data error")
+	ErrDecodeFailed error = errors.New("decode data failed")
+)
+
+type (
+	Shares map[string]*Share
+	Trades map[string]*Trade
 )
 
 type Share struct {
@@ -68,11 +82,13 @@ type row struct {
 	QTY       int64   `xml:"QTY,attr"`       // число инструментов в последней сделке
 }
 
-func parse(in io.Reader) {
+func parse(in io.Reader) (Shares, Trades, error) {
 
 	var doc document
 
-	xml.NewDecoder(in).Decode(&doc)
+	if err := xml.NewDecoder(in).Decode(&doc); err != nil {
+		return nil, nil, ErrDecodeFailed
+	}
 
 	shares := map[string]*Share{}
 	trades := map[string]*Trade{}
@@ -107,7 +123,24 @@ func parse(in io.Reader) {
 		}
 	}
 
-	fmt.Println(shares["SBERP"])
+	return shares, trades, nil
+}
 
-	fmt.Println(trades["SBERP"])
+func Get() (Shares, Trades, error) {
+	client := ua.New()
+
+	client.UserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36"
+	client.Timeout = time.Second * 10
+
+	resp, err := client.Request("GET", "https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities.xml", nil, nil)
+
+	if err != nil {
+		return nil, nil, ErrFetchFailed
+	}
+
+	if resp == nil || resp.StatusCode != 200 {
+		return nil, nil, ErrFetchFailed
+	}
+
+	return parse(bytes.NewReader(resp.Content))
 }

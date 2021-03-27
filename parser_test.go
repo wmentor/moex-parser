@@ -1,17 +1,23 @@
 package parser
 
 import (
-	"os"
+	"encoding/json"
+	"fmt"
 	"testing"
 )
 
 func TestParser(t *testing.T) {
 
-	rh, err := os.Open("securities.xml")
+	shares, trades, err := Get()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rh.Close()
 
-	parse(rh)
+	fmt.Println(shares)
+	fmt.Println(trades)
+
+	for _, v := range trades {
+		data, _ := json.Marshal(v)
+		fmt.Println(string(data))
+	}
 }
